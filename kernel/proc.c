@@ -34,7 +34,14 @@ extern char trampoline[]; // trampoline.S
 // must be acquired before any p->lock.
 struct spinlock wait_lock;
 
-//CHANGED added balanced put
+//CHANGED Added type of scheduling
+enum scheduler_type{
+    PREEMPTIVE,NONPREEMPTIVE
+};
+
+uint8 SCHEDULING_TYPE;
+
+//CHANGED Added balanced put
 enum processor_state {
     LL, NL, HL, FP
 };
@@ -97,7 +104,11 @@ void *
 get_SJF(Scheduler *scheduler) {
     if (is_empty(scheduler)) return 0;
     struct proc *p = (struct proc *) pop(&scheduler->processes_cpu);
-    p->timeslice = p->default_timeslice;
+    if(SCHEDULING_TYPE == PREEMPTIVE) {
+        p->timeslice = p->default_timeslice;
+    }else{
+        p->timeslice = 0;
+    }
     return p;
 }
 
@@ -106,10 +117,11 @@ get_CFS(Scheduler *scheduler) {
     if (is_empty(scheduler))return 0;
     struct proc *p = (struct proc *) pop(&scheduler->processes_cpu);
     uint maximum_execution_time;
-    if(scheduler->processes_cpu.size)
+    if(scheduler->processes_cpu.size) {
         maximum_execution_time = (ticks - p->blocked_tick) / scheduler->processes_cpu.size;
-    else
+    }else {
         maximum_execution_time = (ticks - p->blocked_tick);
+    }
     p->timeslice = maximum_execution_time;
     return p;
 }
@@ -131,7 +143,7 @@ put_CFS(Scheduler *scheduler, void *data) {
     p->blocked_tick = ticks;
     insert(&scheduler->processes_cpu, data);
 }
-
+// Compare functions for scheduling algorithms
 bool
 sjf_cmp(NODE *A, NODE *B) {
     return ((struct proc *) (A->data))->tau_n <= ((struct proc *) (B->data))->tau_n;
@@ -141,6 +153,12 @@ bool
 cfs_cmp(NODE *A, NODE *B) {
     return ((struct proc *) (A->data))->execution_time <= ((struct proc *) (B->data))->execution_time;
 }
+// Compare funsction for heap
+bool
+balanced_cmp(NODE *A, NODE *B){
+    return  ((struct cpu *) (A->data))->_nproc < ((struct cpu *) (B->data))->_nproc;
+}
+
 
 // Allocate a page for each process's kernel stack.
 // Map it high in memory, followed by an invalid
@@ -168,11 +186,14 @@ procinit(void) {
         initlock(&p->lock, "proc");
         p->kstack = KSTACK((int) (p - proc));
     }
-    //CHANGED added SCHEDULER init
+    //CHANGED Added SCHEDULER init
     create_heap(&LL_H);
     create_heap(&NL_H);
     create_heap(&HL_H);
     create_heap(&FP_H);
+    // Add compare function for every heap;
+    LL_H.cmp = NL_H.cmp = HL_H.cmp = FP_H.cmp = balanced_cmp;
+
     for (int i = 0; i < NCPU; i++) {
         create_scheduler(i);
         insert(&LL_H, &cpus[i]);
@@ -244,10 +265,11 @@ allocproc(void) {
     found:
     p->pid = allocpid();
     p->state = USED;
+    //CHANGED Added initial parameters
     p->timeslice = 1;
     p->tau_n = 0;
     p->blocked_by_IO = false;
-    p->default_timeslice = 0;
+    p->default_timeslice = 1;
     p->execution_time = 0;
     p->t_n = 0;
     p->blocked_tick = 0;
@@ -794,7 +816,7 @@ procdump(void) {
     struct proc *p;
     char *state;
 
-    `printf`("\n");
+    printf("\n");
     for (p = proc; p < &proc[NPROC]; p++) {
         if (p->state == UNUSED)
             continue;
