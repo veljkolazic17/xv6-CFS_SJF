@@ -100,4 +100,6 @@ static inline NODE *mergetwo(HEAP *heap, NODE *subA) {
 }
 //POP MIN
 void *pop(HEAP *heap);
+//PEEK MIN
+void *peek(HEAP *heap);
 #endif //UNTITLED_PHEAP_H

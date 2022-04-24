@@ -34,11 +34,6 @@ extern char trampoline[]; // trampoline.S
 // must be acquired before any p->lock.
 struct spinlock wait_lock;
 
-//CHANGED Added type of scheduling
-enum scheduler_type{
-    PREEMPTIVE,NONPREEMPTIVE
-};
-
 uint8 SCHEDULING_TYPE;
 
 //CHANGED Added balanced put
@@ -46,54 +41,54 @@ enum processor_state {
     LL, NL, HL, FP
 };
 
-HEAP FP_H;
-HEAP HL_H;
-HEAP NL_H;
-HEAP LL_H;
-
-Scheduler *
-balanced_cpu() {
-    if (LL_H.size) {
-        struct cpu *cpu = (struct cpu *) pop(&LL_H);
-        cpu->_nproc++;
-        if (cpu->_nproc >> 1 == NCPU - cpu->_nproc) {
-            insert(&NL_H, cpu);
-        } else {
-            insert(&LL_H, cpu);
-        }
-        return cpu->scheduler;
-    } else if (NL_H.size) {
-        struct cpu *cpu = (struct cpu *) pop(&NL_H);
-        cpu->_nproc++;
-        if (cpu->_nproc >> 1 < NCPU - cpu->_nproc) {
-            insert(&HL_H, cpu);
-        } else {
-            insert(&NL_H, cpu);
-        }
-        return cpu->scheduler;
-    } else if (HL_H.size) {
-        struct cpu *cpu = (struct cpu *) pop(&HL_H);
-        cpu->_nproc++;
-        if (cpu->_nproc == NCPU) {
-            insert(&FP_H, cpu);
-        } else {
-            insert(&HL_H, cpu);
-        }
-        return cpu->scheduler;
-    }
-    return 0;
-}
+//HEAP FP_H;
+//HEAP HL_H;
+//HEAP NL_H;
+//HEAP LL_H;
+//
+//Scheduler *
+//balanced_cpu() {
+//    if (LL_H.size) {
+//        struct cpu *cpu = (struct cpu *) pop(&LL_H);
+//        cpu->_nproc++;
+//        if (cpu->_nproc >> 1 == NCPU - cpu->_nproc) {
+//            insert(&NL_H, cpu);
+//        } else {
+//            insert(&LL_H, cpu);
+//        }
+//        return cpu->scheduler;
+//    } else if (NL_H.size) {
+//        struct cpu *cpu = (struct cpu *) pop(&NL_H);
+//        cpu->_nproc++;
+//        if (cpu->_nproc >> 1 < NCPU - cpu->_nproc) {
+//            insert(&HL_H, cpu);
+//        } else {
+//            insert(&NL_H, cpu);
+//        }
+//        return cpu->scheduler;
+//    } else if (HL_H.size) {
+//        struct cpu *cpu = (struct cpu *) pop(&HL_H);
+//        cpu->_nproc++;
+//        if (cpu->_nproc == NCPU) {
+//            insert(&FP_H, cpu);
+//        } else {
+//            insert(&HL_H, cpu);
+//        }
+//        return cpu->scheduler;
+//    }
+//    return 0;
+//}
 
 //CHANGED added global put function
 void
 gput(struct proc* p){
-    Scheduler *_scheduler;
-    acquire(&balanced_put_lock);
-    _scheduler = balanced_cpu();
-    release(&balanced_put_lock);
-    if (_scheduler == 0) {
-        panic("Loaded!");
-    }
+    Scheduler *_scheduler = mycpu()->scheduler;
+//    acquire(&balanced_put_lock);
+//    _scheduler = balanced_cpu();
+//    release(&balanced_put_lock);
+//    if (_scheduler == 0) {
+//        panic("Loaded!");
+//    }
     acquire(&scheduler_lock[_scheduler->ID]);
     _scheduler->put(_scheduler, p);
     release(&scheduler_lock[_scheduler->ID]);
@@ -118,9 +113,9 @@ get_CFS(Scheduler *scheduler) {
     struct proc *p = (struct proc *) pop(&scheduler->processes_cpu);
     uint maximum_execution_time;
     if(scheduler->processes_cpu.size) {
-        maximum_execution_time = (ticks - p->blocked_tick) / scheduler->processes_cpu.size;
+        maximum_execution_time = (ticks - p->blocked_tick) / scheduler->processes_cpu.size +1;
     }else {
-        maximum_execution_time = (ticks - p->blocked_tick);
+        maximum_execution_time = (ticks - p->blocked_tick)+1;
     }
     p->timeslice = maximum_execution_time;
     return p;
@@ -133,6 +128,7 @@ put_SJF(Scheduler *scheduler, void *data) {
     if (p->blocked_by_IO){
         p->tau_n = (p->t_n * alpha + p->tau_n * (100 - alpha)) / 100;
         p->blocked_by_IO = false;
+        p->t_n = 0;
     }
     insert(&scheduler->processes_cpu, data);
 }
@@ -146,12 +142,12 @@ put_CFS(Scheduler *scheduler, void *data) {
 // Compare functions for scheduling algorithms
 bool
 sjf_cmp(NODE *A, NODE *B) {
-    return ((struct proc *) (A->data))->tau_n <= ((struct proc *) (B->data))->tau_n;
+    return ((struct proc *) (A->data))->tau_n < ((struct proc *) (B->data))->tau_n;
 }
 
 bool
 cfs_cmp(NODE *A, NODE *B) {
-    return ((struct proc *) (A->data))->execution_time <= ((struct proc *) (B->data))->execution_time;
+    return ((struct proc *) (A->data))->execution_time < ((struct proc *) (B->data))->execution_time;
 }
 // Compare funsction for heap
 bool
@@ -186,22 +182,23 @@ procinit(void) {
         initlock(&p->lock, "proc");
         p->kstack = KSTACK((int) (p - proc));
     }
-    //CHANGED Added SCHEDULER init
-    create_heap(&LL_H);
-    create_heap(&NL_H);
-    create_heap(&HL_H);
-    create_heap(&FP_H);
-    // Add compare function for every heap;
-    LL_H.cmp = NL_H.cmp = HL_H.cmp = FP_H.cmp = balanced_cmp;
+//    CHANGED Added SCHEDULER init
+//    create_heap(&LL_H);
+//    create_heap(&NL_H);
+//    create_heap(&HL_H);
+//    create_heap(&FP_H);
+//    Add compare function for every heap;
+//    LL_H.cmp = NL_H.cmp = HL_H.cmp = FP_H.cmp = balanced_cmp;
 
     for (int i = 0; i < NCPU; i++) {
         create_scheduler(i);
-        insert(&LL_H, &cpus[i]);
+//        insert(&LL_H, &cpus[i]);
         initlock(&scheduler_lock[i],"schedlock");
-        // Add scheduler for every cpu
+//        Add scheduler for every cpu
         cpus[i]._nproc = 0;
         cpus[i].scheduler = &SCHEDULERS[i];
     }
+    SCHEDULING_TYPE = NONPREEMPTIVE;
 }
 
 // Must be called with interrupts disabled,
@@ -626,6 +623,7 @@ scheduler(void) {
         if(!p)continue;
         acquire(&p->lock);
         p->state = RUNNING;
+        c->_nproc--;
         c->proc = p;
         swtch(&c->context, &p->context);
         c->proc = 0;
@@ -665,6 +663,8 @@ yield(void) {
     struct proc *p = myproc();
     acquire(&p->lock);
     p->state = RUNNABLE;
+    p->tau_n++;
+    p->execution_time++;
     //----------------------------------------------------------------
     //CHANGED added put
     gput(p);
@@ -828,3 +828,27 @@ procdump(void) {
         printf("\n");
     }
 }
+//
+// Created by os on 12/24/21.
+//
+//#include "../kernel/types.h"
+//#include "user.h"
+//#include "../kernel/stat.h"
+//void
+//main(){
+//
+//    int pid = getpid();
+//
+//    for(int i = 0 ;i<10;i++){
+//        if( i == 0 && pid != 0){
+//            pid = fork();
+//        }
+//        if(pid == 0) printf("Tekst 0\n");
+//        else printf("Tekst 1\n");
+//        //printf("Tekst %d : %d\n",i,pid);
+//        for(int j = 0;j<30000;j++)
+//            for(int k = 0;k<10000;k++);
+//    }
+//    //printf("TIME:%d\n",t);
+//    exit(0);
+//}

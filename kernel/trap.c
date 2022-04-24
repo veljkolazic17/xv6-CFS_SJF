@@ -79,8 +79,7 @@ usertrap(void)
   // give up the CPU if this is a timer interrupt.
   if(which_dev == 2){
       //CHANGED timeslice check
-      p->execution_time++;
-      if(p->timeslice && --p->timeslice == 0){
+      if(p->timeslice && --(p->timeslice) == 0){
           yield();
       }
 
@@ -158,8 +157,7 @@ kerneltrap()
   if(which_dev == 2 && myproc() != 0 && myproc()->state == RUNNING){
       //CHANGED check processor has any time left to do the process
       //KERNEL THREADS ONLY
-      myproc()->execution_time++;
-      if(myproc()->timeslice && --myproc()->timeslice == 0){
+      if(myproc()->timeslice && --(myproc()->timeslice) == 0){
           yield();
       }
   }

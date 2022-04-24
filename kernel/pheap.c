@@ -49,3 +49,8 @@ pop(HEAP *heap) {
     heap->root = mergetwo(heap,node);
     return node->data;
 }
+//PEEK MIN
+void*
+peek(HEAP *heap){
+    return heap->root;
+}

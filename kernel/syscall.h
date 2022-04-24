@@ -21,4 +21,4 @@
 #define SYS_mkdir  20
 #define SYS_close  21
 //CHANGED My system calls
-
+#define SYS_algoc  22

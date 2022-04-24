@@ -9,7 +9,7 @@ void create_scheduler(int ID) {
     Scheduler *scheduler = &SCHEDULERS[ID];
     scheduler->ID = ID;
     create_heap(&scheduler->processes_cpu);
-    //DEFAULT IS nonPREEMTIVE SJF
+
     scheduler->get = get_CFS;
     scheduler->put = put_CFS;
     scheduler->processes_cpu.cmp = cfs_cmp;

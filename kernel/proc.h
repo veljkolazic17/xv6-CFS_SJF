@@ -33,6 +33,14 @@ struct cpu {
 
 extern struct cpu cpus[NCPU];
 
+//CHANGED Added type of scheduling
+enum scheduler_type{
+    PREEMPTIVE,NONPREEMPTIVE
+};
+
+//CHANGED added SCHEDULING_TYPE
+extern uint8 SCHEDULING_TYPE;
+
 // per-process data for the trap handling code in trampoline.S.
 // sits in a page by itself just under the trampoline page in the
 // user page table. not specially mapped in the kernel page table.
